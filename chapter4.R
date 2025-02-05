@@ -313,7 +313,7 @@ shade(height.PI, weight.seq)
 #4.63 - Under the hood for sim()
 post <- extract.samples(m4.3)
 weight.seq <- 25:70
-#For each expected heights in the posterior distribution, sample 10,000 heights from a normal distribution and do this for each input weight
+#for each weight, use posterior distribution of linear function(10000) to generate 10,000 expected means. Draw 1 sample per 10,000 expected mean with standard deviation of sd
 sim.height <- sapply(weight.seq, function(weight)
   rnorm(
     n=nrow(post),
@@ -357,3 +357,38 @@ plot(height ~ weight_s, d, col = col.alpha(rangi2,0.5))
 lines(weight.seq, mu.mean)
 shade(mu.PI, weight.seq)
 shade(height.PI, weight.seq)
+
+#4.69
+d$weight_s3 <- d$weight_s^3
+m4.6 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b1*weight_s + b2*weight_s2 + b3*weight_s3,
+    a ~ dnorm( 178 , 20 ) ,
+    b1 ~ dlnorm( 0 , 1 ) ,
+    b2 ~ dnorm( 0 , 10 ) ,
+    b3 ~ dnorm( 0 , 10 ) ,
+    sigma ~ dunif( 0 , 50 )
+  ), data = d
+)
+
+#4.72
+data("cherry_blossoms")
+d <- cherry_blossoms
+precis(d)
+plot(doy ~ year, d)
+
+#4.73
+d2 <- d[complete.cases(d$doy),] #complete cases on doy
+num_knots <- 15
+knot_list <- quantile(d2$year, probs=seq(0,1,length.out = num_knots))
+
+#4.74
+library(splines)
+B <- bs(d2$year,
+        knots=knot_list[-c(1,num_knots)] ,
+        degree=3 , intercept=TRUE)
+
+#4.75
+plot( NULL , xlim=range(d2$year) , ylim=c(0,1) , xlab="year" , ylab="basis" )
+for ( i in 1:ncol(B) ) lines( d2$year , B[,i] )
