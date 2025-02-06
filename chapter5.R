@@ -207,4 +207,168 @@ M_sim <- with(post, sapply(1:30,
           function(i) rnorm( 1e3 , aM + bAM*A_seq[i] , sigma_M ) ) )
 
 D_sim <- with( post , sapply( 1:30 ,
-         function(i) rnorm( 1e3 , a + bA*A_seq[i] + bM*M_sim[,i] , sigma ) ) )                       
+         function(i) rnorm( 1e3 , a + bA*A_seq[i] + bM*M_sim[,i] , sigma ) ) )   
+
+
+##5.28
+data(milk)
+d <- milk
+
+##5.29
+d$K <- standardize(d$kcal.per.g)
+d$N <- standardize(d$neocortex.perc)
+d$M <- standardize(log(d$mass))
+
+##5,30
+m5.5_draft <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N, 
+    a ~ dnorm(0,1),
+    bN ~ dnorm(0,1),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+##5.31
+d$neocortex.perc
+
+##5.32
+dcc <- d[complete.cases(d$K, d$N, d$M), ]
+
+##5.33
+m5.5_draft <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N, 
+    a ~ dnorm(0,1),
+    bN ~ dnorm(0,1),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+
+##5.34 - simulate and plot 50 prior regression lines
+prior <- extract.prior(m5.5_draft)
+xseq <- c(-2,2)
+mu <- link(m5.5_draft, post = prior, data = list(N=xseq))
+plot(NULL, xlim=xseq, ylim=xseq)
+for (i in 1:50) {
+  lines(xseq, mu[i,], col=col.alpha("black", 0.3))
+}
+
+##5.35 - try different priors
+m5.5 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N,
+    a ~ dnorm(0,0.2),
+    bN ~ dnorm(0,0.5),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+
+#still very vague priors, but at least the lines stay within the high probability region of the observable data
+prior <- extract.prior(m5.5)
+xseq <- c(-2,2)
+mu <- link(m5.5, post = prior, data = list(N=xseq))
+plot(NULL, xlim=xseq, ylim=xseq)
+for (i in 1:50) {
+  lines(xseq, mu[i,], col=col.alpha("black", 0.3))
+}
+
+##5.36 - looking at posterior
+precis(m5.5)
+
+
+##5.37
+xseq <- seq(from=min(dcc$N)-0.15, to=max(dcc$N)+0.15, length.out=30)
+mu <- link(m5.5, data=list(N=xseq))
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI)
+plot(K ~ N, data=dcc)
+lines(xseq, mu_mean, lwd=2)
+shade(mu_PI, xseq)
+
+##5.38
+plot(K ~ M, data = dcc)
+
+m5.6 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bM*M,
+    a ~ dnorm(0, 0.2),
+    bM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = dcc
+)
+precis(m5.6)
+
+xseq <- seq(from=min(dcc$M)-0.15, to=max(dcc$M)+0.15, length.out = 30)
+mu <- link(m5.6, data = list(M=xseq))
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI)
+plot(K ~ M, data = dcc)
+lines(xseq, mu_mean, lwd=2)
+shade(mu_PI, xseq)
+
+##5.39
+m5.7 <- quap(
+  alist(
+    K ~ dnorm(mu, sigma),
+    mu <- a + bN*N + bM*M,
+    a ~ dnorm(0, 0.2),
+    bN ~ dnorm(0,0.5),
+    bM ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = dcc )
+
+precis(m5.7)
+
+##5.40
+plot(coeftab(m5.5, m5.6, m5.7), pars=c("bM", "bN"))
+
+pairs(~K + M + N, dcc)
+
+##5.41
+## plotting K on M while considering N
+xseq <- seq(from=min(dcc$M)-0.15, to=max(dcc$M)+0.15, length.out=30)
+mu <- link(m5.7, data = data.frame(M=xseq, N=0))
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI)
+plot(K ~ M, xlim=range(dcc$M), ylim=range(dcc$K), xlab = "log body mass (std)", ylab = "kilocal per g (std)",
+     main = "Counterfactual holding N = 0", dcc)
+lines(xseq, mu_mean, lwd=2)
+shade(mu_PI, xseq)
+
+##plotting K on N while considering M
+xseq <- seq(from=min(dcc$N)-0.15, to=max(dcc$N)+0.15, length.out=30)
+mu <- link(m5.7, data = data.frame(N=xseq, M=0))
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI)
+plot(K ~ N, xlim=range(dcc$N), ylim=range(dcc$K), xlab = "neocortex percent (std)", ylab = "kilocal per g (std)",
+     main = "Counterfactual holding M = 0", dcc)
+lines(xseq, mu_mean, lwd=2)
+shade(mu_PI, xseq)
+
+
+##5.42
+# M -> K <- N
+# M -> N
+n <- 100
+M <- rnorm(n)
+N <- rnorm(n, M)
+K <- rnorm(n, N - M)
+d_sim <- data.frame(K = K, N = N, M = M)
+
+##5.44
+dag5.7 <- dagitty("dag{
+                   M -> K <- N
+                   M -> N}")
+coordinates(dag5.7) <- list( x=c(M=0,K=1,N=2) , y=c(M=0.5,K=1,N=0.5) )
+MElist <- equivalentDAGs(dag5.7)
+drawdag(MElist)
+
+##5.45
+data("Howell1")
+d <- Howell1
+str(d)
