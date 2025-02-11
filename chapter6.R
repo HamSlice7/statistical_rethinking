@@ -209,3 +209,83 @@ m6.9 <- quap(
   ), data = d2
 )
 precis(m6.9, depth = 2)
+
+##6.24
+m6.10 <- quap(
+  alist(
+    happiness ~ dnorm(mu, sigma),
+    mu <- a + bA*A,
+    a ~ dnorm(0, 1),
+    bA ~ dnorm(0,2),
+    sigma ~ dexp(1)
+  ), data = d2
+)
+precis(m6.10)
+
+##6.25 - these parameters are like slopes ina. regression model
+N <- 200 # number of grandparent-parent-child triads
+b_GP <- 1 # direct effect of G on P
+b_GC <- 0 # direct effect of G on C
+b_PC <- 1 # direct effect of P on C
+b_U <- 2 # direct effect of U on P and C
+
+##6.26 - Use the above slopes to draw random variables
+set.seed(1)
+U <- 2*rbern(N, 0.5) - 1
+G <- rnorm(N)
+P <- rnorm(N, b_GP*G + b_U*U)
+C <- rnorm(N, b_PC*P + b_GC*G + b_U*U)
+d <- data.frame( C=C , P=P , G=G , U=U )
+
+##6.27
+m6.11 <- quap(
+  alist(
+    C ~ dnorm(mu, sigma),
+    mu <- a + b_PC*P + b_GC*G,
+    a ~ dnorm(0,1),
+    c(b_PC, b_GC) ~ dnorm(0,1),
+    sigma ~ dexp(1)
+  ), data = d
+)
+precis(m6.11)
+
+##6.28
+m6.12 <- quap(
+  alist(
+    C ~ dnorm( mu , sigma ),
+    mu <- a + b_PC*P + b_GC*G + b_U*U,
+    a ~ dnorm( 0 , 1 ),
+    c(b_PC,b_GC,b_U) ~ dnorm( 0 , 1 ),
+    sigma ~ dexp( 1 )
+  ), data = d
+)
+precis(m6.12)
+
+
+#6.29 - Finding the necessary variables to control for (condition on) in order to block backdoors for infering causal relationship between X and Y.
+library(dagitty)
+dag_6.1 <- dagitty( "dag {
+U [unobserved]
+X -> Y
+X <- U <- A -> C -> Y
+U -> B <- C
+}")
+adjustmentSets( dag_6.1 , exposure="X" , outcome="Y" )
+impliedConditionalIndependencies( dag_6.1 )
+
+##6.30
+dag_6.2 <- dagitty( "dag {
+A -> D
+A -> M -> D
+A <- S -> M
+S -> W -> D
+}")
+adjustmentSets( dag_6.2 , exposure="W" , outcome="D" )
+
+##6.31
+impliedConditionalIndependencies( dag_6.2 )
+
+dag_6.3 <- dagitty("dag{
+U [unobserved]
+X <- U <- A -> C -> Y} ")
+impliedConditionalIndependencies(dag_6.3)
