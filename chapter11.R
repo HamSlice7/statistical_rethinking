@@ -165,6 +165,7 @@ precis(m11.7, depth = 2)
 #Calculating log-odds difference and probability difference for males vs females
 post <- extract.samples(m11.7)
 diff_a <- post$a[,1] - post$a[,2]
+mean(exp(post$a[,1] - post$a[,2]))
 diff_p <- inv_logit(post$a[,1]) - inv_logit(post$a[,2])
 precis( list( diff_a=diff_a , diff_p=diff_p ) )
 
